@@ -1,0 +1,14 @@
+# Java / Maven
+target/
+*.class
+.mvn/
+.idea/
+
+# Node / Vue
+node_modules/
+dist/
+.env.local
+
+# Docker & OS
+.DS_Store
+*.log
