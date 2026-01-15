@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: nexdom-db
+    restart: always
+    environment:
+      POSTGRES_DB: task_db
+      POSTGRES_USER: user_nexdom
+      POSTGRES_PASSWORD: password_nexdom
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d
+
+  backend:
+    build: ./backend
+    container_name: nexdom-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/task_db
+      SPRING_DATASOURCE_USERNAME: user_nexdom
+      SPRING_DATASOURCE_PASSWORD: password_nexdom
+
+  frontend:
+    build: ./frontend
+    container_name: nexdom-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
