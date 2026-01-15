@@ -1,9 +1,14 @@
 <script setup lang="ts">
+/**
+ * View Principal de Gestão de Tarefas.
+ * Centraliza as operações de CRUD, filtragem em tempo real, lógica de prazos
+ * e notificações de feedback para o usuário.
+ */
 import { ref, onMounted, computed } from 'vue'
 import api from '../services/api'
 import ToastNotification from '../components/ToastNotification.vue'
 
-// Interface flexível para evitar erros de compilação
+// Interface para garantir tipagem forte e evitar erros de propriedade indefinida
 interface Task {
   id: number;
   title: string;
@@ -13,7 +18,7 @@ interface Task {
   dueDate?: string | null;
 }
 
-// Estado reativo
+// Estados reativos para dados e formulários
 const tasks = ref<Task[]>([])
 const searchQuery = ref('')
 const newTaskTitle = ref('')
@@ -21,30 +26,34 @@ const newTaskDescription = ref('')
 const newTaskDueDate = ref('')
 const isLoading = ref(false)
 
-// Tipagem segura para a referência do Toast
+// Referência para acessar os métodos do componente ToastNotification
 const toastRef = ref<{ add: (msg: string, type?: 'success' | 'error') => void } | null>(null)
 
-// Formatação de data com tratamento de nulos e fuso horário
+/**
+ * Formata datas vindas do backend (ISO) para o padrão brasileiro (DD/MM/YYYY).
+ * Inclui correção de fuso horário para evitar divergências na exibição.
+ */
 const formatDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) return 'Sem data'
   const date = new Date(dateStr)
   if (isNaN(date.getTime())) return 'Data inválida'
-  // Ajuste para evitar que a data "volte um dia" devido ao fuso horário
+  // Ajuste para compensar o fuso horário local e manter a data correta
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR')
 }
 
-// Lógica de atraso
+/**
+ * Verifica se uma tarefa está atrasada comparando o prazo com a data atual.
+ */
 const isOverdue = (dueDate: string | undefined | null): boolean => {
   if (!dueDate) return false
-
-  const todayDate = new Date()
-  const todayStr = todayDate.toISOString().split('T')[0]
-
-  // Garantimos que todayStr nunca seja undefined antes da comparação
+  const todayStr = new Date().toISOString().split('T')[0]
   return todayStr ? dueDate < todayStr : false
 }
 
-// Filtro e Ordenação Reativa
+/**
+ * Propriedade Computada: Filtra as tarefas por título e as ordena.
+ * Tarefas 'PENDENTE' aparecem primeiro para priorizar o fluxo de trabalho.
+ */
 const filteredTasks = computed(() => {
   const list = tasks.value.filter(t =>
     t.title.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -56,6 +65,9 @@ const filteredTasks = computed(() => {
   })
 })
 
+/**
+ * Busca a lista de tarefas atualizada do servidor.
+ */
 const fetchTasks = async () => {
   isLoading.value = true
   try {
@@ -68,6 +80,9 @@ const fetchTasks = async () => {
   }
 }
 
+/**
+ * Envia uma nova tarefa para o backend.
+ */
 const addTask = async () => {
   if (!newTaskTitle.value.trim()) {
     toastRef.value?.add('O título é obrigatório!', 'error')
@@ -80,6 +95,7 @@ const addTask = async () => {
       dueDate: newTaskDueDate.value || null,
       status: 'PENDENTE'
     })
+    // Reseta o formulário após sucesso
     newTaskTitle.value = ''
     newTaskDescription.value = ''
     newTaskDueDate.value = ''
@@ -90,6 +106,9 @@ const addTask = async () => {
   }
 }
 
+/**
+ * Abre diálogos nativos para edição rápida de dados da tarefa.
+ */
 const editTask = async (task: Task) => {
   const newTitle = prompt('Editar título:', task.title)
   if (newTitle === null) return
@@ -109,6 +128,9 @@ const editTask = async (task: Task) => {
   }
 }
 
+/**
+ * Alterna entre os status PENDENTE e CONCLUIDA.
+ */
 const toggleStatus = async (task: Task) => {
   const newStatus = task.status === 'PENDENTE' ? 'CONCLUIDA' : 'PENDENTE'
   try {
@@ -120,6 +142,9 @@ const toggleStatus = async (task: Task) => {
   }
 }
 
+/**
+ * Remove uma tarefa após confirmação do usuário.
+ */
 const deleteTask = async (id: number) => {
   if (confirm('Deseja excluir esta tarefa?')) {
     try {
@@ -132,6 +157,7 @@ const deleteTask = async (id: number) => {
   }
 }
 
+// Inicializa a busca de dados ao montar o componente
 onMounted(fetchTasks)
 </script>
 
@@ -157,7 +183,8 @@ onMounted(fetchTasks)
           <input v-model="newTaskDueDate" type="date" class="input-date" />
         </div>
 
-        <textarea v-model="newTaskDescription" placeholder="Descrição da tarefa (opcional)" class="input-desc"></textarea>
+        <textarea v-model="newTaskDescription" placeholder="Descrição (se vazia, gerará sugestão automática)" class="input-desc"></textarea>
+
         <button @click="addTask" :disabled="isLoading" class="btn-add">
           {{ isLoading ? 'Enviando...' : 'Adicionar Tarefa' }}
         </button>
@@ -165,7 +192,7 @@ onMounted(fetchTasks)
     </section>
 
     <section class="tasks-list">
-      <div v-if="isLoading && tasks.length === 0" class="loading-text">Sincronizando...</div>
+      <div v-if="isLoading && tasks.length === 0" class="loading-text">Sincronizando com servidor...</div>
 
       <ul>
         <li v-for="task in filteredTasks" :key="task.id" :class="{ completed: task.status === 'CONCLUIDA' }">
@@ -198,49 +225,51 @@ onMounted(fetchTasks)
 </template>
 
 <style scoped>
-/* Estilos consolidados para garantir consistência visual */
+/* Layout e Tipografia */
 .tasks-container { max-width: 700px; margin: 40px auto; padding: 0 20px; font-family: 'Inter', sans-serif; }
 .header { text-align: center; margin-bottom: 30px; }
-.header h1 { color: #2c3e50; margin: 0; }
-.header p { color: #95a5a6; margin: 5px 0 0; }
+.header h1 { color: #2c3e50; font-weight: 800; letter-spacing: -1px; }
+.header p { color: #95a5a6; font-size: 0.9rem; }
 
-.search-section { margin-bottom: 20px; }
-.input-search { width: 100%; padding: 12px; border: 2px solid #edf2f7; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
-.input-search:focus { border-color: #42b983; outline: none; }
+/* Estilização de Inputs */
+.input-search { width: 100%; padding: 14px; border: 2px solid #edf2f7; border-radius: 12px; font-size: 1rem; transition: 0.3s; }
+.input-search:focus { border-color: #42b983; outline: none; box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.1); }
 
-.add-task-form { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 30px; border: 1px solid #f0f0f0; }
-.form-group { display: flex; flex-direction: column; gap: 12px; }
-.input-title { padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; font-size: 1rem; }
-.input-desc { padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 70px; font-family: inherit; }
+/* Card de Formulário */
+.add-task-form { background: #fff; padding: 24px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); margin-bottom: 30px; border: 1px solid #f0f0f0; }
+.form-group { display: flex; flex-direction: column; gap: 14px; }
+.input-title { padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-weight: 600; }
+.input-desc { padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; min-height: 80px; resize: vertical; }
 
-.date-input-group { display: flex; flex-direction: column; gap: 4px; }
-.date-input-group label { font-size: 0.75rem; font-weight: bold; color: #718096; text-transform: uppercase; }
-.input-date { padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; color: #4a5568; }
+.date-input-group { display: flex; flex-direction: column; gap: 6px; }
+.date-input-group label { font-size: 0.7rem; font-weight: 800; color: #a0aec0; text-transform: uppercase; }
+.input-date { padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; }
 
-.btn-add { background: #42b983; color: white; border: none; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-.btn-add:hover { background: #38a169; }
+.btn-add { background: #42b983; color: white; border: none; padding: 16px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.3s; }
+.btn-add:hover { background: #38a169; transform: translateY(-1px); }
 
-li { background: white; margin-bottom: 15px; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; border-left: 6px solid #42b983; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
-li.completed { border-left-color: #cbd5e0; opacity: 0.7; }
+/* Estilização dos Itens da Lista */
+li { background: white; margin-bottom: 16px; padding: 20px; border-radius: 14px; display: flex; justify-content: space-between; border-left: 6px solid #42b983; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: 0.3s; }
+li.completed { border-left-color: #cbd5e0; opacity: 0.6; }
 
-.task-content { flex: 1; padding-right: 15px; }
-.task-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.title { font-size: 1.1rem; font-weight: 700; color: #2d3748; }
+.task-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.title { font-size: 1.15rem; font-weight: 700; color: #1a202c; }
 
-.badge { font-size: 0.65rem; padding: 4px 8px; border-radius: 20px; text-transform: uppercase; font-weight: 800; }
-.badge.pendente { background: #feebc8; color: #9c4221; }
-.badge.concluida { background: #c6f6d5; color: #22543d; }
+/* Status Badges */
+.badge { font-size: 0.6rem; padding: 4px 10px; border-radius: 12px; font-weight: 900; }
+.badge.pendente { background: #fffaf0; color: #9c4221; border: 1px solid #feebc8; }
+.badge.concluida { background: #f0fff4; color: #22543d; border: 1px solid #c6f6d5; }
 
-.desc { font-size: 0.9rem; color: #4a5568; line-height: 1.5; margin: 0; }
+.desc { font-size: 0.95rem; color: #4a5568; margin: 8px 0; }
+.task-footer { margin-top: 14px; display: flex; gap: 16px; border-top: 1px solid #f7fafc; padding-top: 12px; }
+.date-tag { font-size: 0.75rem; color: #718096; }
+.overdue { color: #e53e3e; font-weight: 800; }
 
-.task-footer { margin-top: 15px; display: flex; gap: 15px; border-top: 1px solid #edf2f7; padding-top: 10px; }
-.date-tag { font-size: 0.7rem; color: #718096; font-weight: 500; }
-.overdue { color: #e53e3e; font-weight: 700; }
+/* Botões de Ação */
+.actions { display: flex; gap: 8px; }
+.btn-action { border: none; background: #f7fafc; padding: 10px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+.btn-action:hover { background: #edf2f7; transform: scale(1.1); }
+.btn-del:hover { background: #fff5f5; color: #c53030; }
 
-.actions { display: flex; gap: 8px; align-self: center; }
-.btn-action { border: none; background: #edf2f7; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 1rem; }
-.btn-action:hover { background: #e2e8f0; }
-.btn-del:hover { background: #fed7d7; color: #c53030; }
-
-.loading-text { text-align: center; color: #42b983; padding: 20px; font-weight: bold; }
+.loading-text { text-align: center; color: #42b983; padding: 30px; font-weight: 600; }
 </style>

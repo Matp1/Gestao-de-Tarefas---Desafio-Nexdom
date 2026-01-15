@@ -1,14 +1,22 @@
+version: '3.8'
+
 services:
+  # Banco de Dados Relacional (PostgreSQL)
   db:
     image: postgres:15
     container_name: task_db
+    restart: always
     environment:
       POSTGRES_DB: task_db
       POSTGRES_USER: user_nexdom
       POSTGRES_PASSWORD: password_nexdom
     ports:
       - "5432:5432"
+    volumes:
+      # Garante que os dados do banco persistam mesmo após o 'docker-compose down'
+      - postgres_data:/var/lib/postgresql/data
 
+  # API REST (Spring Boot)
   backend:
     build: ./backend
     container_name: spring_backend
@@ -17,12 +25,23 @@ services:
     depends_on:
       - db
     environment:
+      # Conecta ao serviço 'db' usando o nome do host definido no compose
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/task_db
+      SPRING_DATASOURCE_USERNAME: user_nexdom
+      SPRING_DATASOURCE_PASSWORD: password_nexdom
+      # Atualiza o schema do banco automaticamente sem apagar dados existentes
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
+  # Interface do Usuário (Vue.js + Nginx)
   frontend:
     build: ./frontend
     container_name: vue_frontend
     ports:
-      - "80:80" # O Vue será acessado em http://localhost
+      - "80:80" # Acesso principal via http://localhost
     depends_on:
       - backend
+    restart: on-failure
+
+# Definição do volume nomeado para persistência do PostgreSQL
+volumes:
+  postgres_data:
