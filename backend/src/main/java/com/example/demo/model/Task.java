@@ -3,6 +3,7 @@ package com.example.demo.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "tasks")
@@ -16,9 +17,26 @@ public class Task {
     @Column(nullable = false)
     private String title;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    private LocalDateTime dueDate;
+    // Data em que a tarefa foi criada (automático)
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 
-    private String status; // Ex: PENDENTE, EM_ANDAMENTO, CONCLUIDA
+    // Prazo de conclusão definido pelo usuário (Apenas data YYYY-MM-DD)
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    @Column(nullable = false)
+    private String status; // Ex: PENDENTE, CONCLUIDA
+
+    // Este método roda automaticamente antes de salvar no banco pela primeira vez
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.status == null) {
+            this.status = "PENDENTE";
+        }
+    }
 }

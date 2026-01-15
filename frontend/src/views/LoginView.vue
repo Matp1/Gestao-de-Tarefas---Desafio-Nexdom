@@ -15,6 +15,7 @@ const handleLogin = async () => {
     })
     localStorage.setItem('token', response.data.token)
     router.push('/tasks') // Redireciona após o sucesso
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     alert('Erro ao fazer login! Verifique usuário e senha.')
   }
